@@ -1,7 +1,9 @@
 extern crate byteorder;
+extern crate num;
 
 mod bitmap;
 mod rgb;
+mod mandelbrot;
 
 fn main() {
     
