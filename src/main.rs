@@ -5,6 +5,7 @@ mod bitmap;
 mod rgb;
 mod mandelbrot;
 mod zoom;
+mod fractalgenerator;
 
 fn main() {
     

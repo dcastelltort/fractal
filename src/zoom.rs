@@ -1,6 +1,6 @@
 
 #[derive(Clone)]
-struct Zoom {
+pub struct Zoom {
 	x : i32, 
 	y: i32,
 	scale: f64
@@ -12,7 +12,7 @@ impl Zoom {
     }
 }
 
-struct ZoomList {
+pub struct ZoomList {
 
 	x_center : f64,
 	y_center: f64, 
