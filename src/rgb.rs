@@ -1,5 +1,4 @@
 use std::ops::{Add, Sub};
-use std::clone::Clone;
 use std::f64;
 
 #[derive(Debug, Clone)]

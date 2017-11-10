@@ -4,6 +4,7 @@ extern crate num;
 mod bitmap;
 mod rgb;
 mod mandelbrot;
+mod zoom;
 
 fn main() {
     
