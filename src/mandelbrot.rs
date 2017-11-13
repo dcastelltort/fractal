@@ -2,9 +2,9 @@
 use num::complex::Complex;
 use num::traits::Zero;
 
-const MAX_ITERATIONS: i32 = 1000;
+pub const MAX_ITERATIONS: i32 = 1000;
 
-fn get_iterations(x: f64, y: f64) -> i32 {
+pub fn get_iterations(x: f64, y: f64) -> i32 {
     let mut z : Complex<f64> = Zero::zero();
 	let c : Complex<f64> = Complex::new(x, y);
 

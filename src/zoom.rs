@@ -27,13 +27,14 @@ impl ZoomList {
         ZoomList{x_center : 0.0, y_center: 0.0, width: width, height: height, scale: 1.0, zooms: vec![]}
     }
 
-	pub fn add(self: &mut ZoomList, zoom : &Zoom) {
-        self.zooms.push(zoom.clone());
-
+	pub fn add(self: &mut ZoomList, zoom : Zoom) {
+        
         self.x_center += (zoom.x - self.width / 2) as f64 * self.scale;
         self.y_center += -(zoom.y - self.height / 2) as f64 * self.scale;
 
         self.scale *= zoom.scale;
+        
+        self.zooms.push(zoom);
     }
 
 	pub fn do_zoom(self: &ZoomList, x: i32, y: i32) -> (f64, f64) {
