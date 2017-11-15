@@ -27,10 +27,10 @@ impl FractalCreator {
         let mut f = FractalCreator {
             width: width,
             height: height,
-            histogram : vec![],
-            fractal : vec![],
-            bitmap : Bitmap::new(0,0),
-            zoomList : ZoomList::new(0,0),
+            histogram : vec![0;mandelbrot::MAX_ITERATIONS as usize],
+            fractal : vec![0;(width * height) as usize],
+            bitmap : Bitmap::new(width,height),
+            zoomList : ZoomList::new(width,height),
             total : 0,
             ranges : vec![],
             colors : vec![],
@@ -41,28 +41,32 @@ impl FractalCreator {
         f
     }
 
-   pub fn get_range(&self, iterations: i32) -> i32 {
-       let mut range : i32 = 0;
+   pub fn get_range(&self, iterations: i32) -> Option<i32> {
+       let mut range : usize = 0;
+       let mut found = false;
 
-        for it in self.ranges.iter() {
-            range = *it;
+        for i in 0..self.ranges.len() {
+            range = i;
        
-            if self.ranges[range as usize] > iterations {
+            if self.ranges[range] > iterations {
+                found = true;
                 break;
             }
         }
+        
+        assert!(range < self.ranges.len());
 
-        range -= 1;
-
-        assert!(range > -1);
-        assert!(range < self.ranges.len() as i32);
-
-        range
+        if (found) {
+            Some(range as i32)
+        }
+        else {
+            None
+        }
    }
 
 	
 	pub fn add_range(&mut self, range_end: f64, rgb: RGB) {
-        self.ranges.push( (range_end as i32 * mandelbrot::MAX_ITERATIONS));
+        self.ranges.push( (range_end * mandelbrot::MAX_ITERATIONS as f64) as i32);
 	    self.colors.push(rgb);
 
         if self.got_first_range {
@@ -78,22 +82,25 @@ impl FractalCreator {
     }
 
 	pub fn run(&mut self, name: String) {
-        self.calculateIteration();
-        self.calculateTotalIterations();
-        self.calculateRangeTotals();
-        self.drawFractal();
-        self.writeBitmap(name);
+        self.calculate_iteration();
+        self.calculate_total_iterations();
+        self.calculate_range_totals();
+        self.draw_fractal();
+        self.write_bitmap(name);
     }
 
 
-    fn calculateIteration(&mut self) {
+    fn calculate_iteration(&mut self) {
         for y in 0..self.height {
             for x in 0..self.width {
                 let coords = self.zoomList.do_zoom(x, y);
 
                 let iterations : i32 = mandelbrot::get_iterations(coords.0,coords.1);
 
-                self.fractal[(y * self.width + x) as usize] = iterations;
+                let i = (y * self.width + x) as usize;
+                assert!(i < self.fractal.capacity(), "i : {} , cap: {}", i, self.fractal.capacity());
+
+                self.fractal[i] = iterations;
 
                 if iterations != mandelbrot::MAX_ITERATIONS {
                     self.histogram[iterations as usize] += 1;
@@ -103,14 +110,14 @@ impl FractalCreator {
 	    }
     }
 
-	fn calculateTotalIterations(&mut self) {
+	fn calculate_total_iterations(&mut self) {
         
         for i in 0..mandelbrot::MAX_ITERATIONS {
             self.total += self.histogram[i as usize];
         }
     }
 
-	fn calculateRangeTotals(&mut self) {
+	fn calculate_range_totals(&mut self) {
         
         let mut rangeIndex : usize = 0;
 
@@ -125,7 +132,7 @@ impl FractalCreator {
         }
     }
 
-	fn drawFractal(&mut self) {
+	fn draw_fractal(&mut self) {
         let startColor = RGB::new(0.0, 0.0, 0.0);
 	    let endColor = RGB::new(0.0, 0.0, 255.0);
 	    let colorDiff = endColor - startColor.clone();
@@ -157,8 +164,25 @@ impl FractalCreator {
         }
     }
 
-	fn writeBitmap(&self, name : String) {
+	fn write_bitmap(&self, name : String) {
        self.bitmap.write(name);
     }
 
+}
+
+#[test]
+fn test_get_ranges() {
+    let mut fractalCreator = FractalCreator::new(800, 600);
+
+    assert!(fractalCreator.get_range(999), None);
+
+	fractalCreator.add_range(0.0, RGB::new(0.0, 0.0, 0.0));
+	fractalCreator.add_range(0.3, RGB::new(255.0, 0.0, 0.0));
+	fractalCreator.add_range(0.5, RGB::new(255.0, 255.0, 0.0));
+	fractalCreator.add_range(1.0, RGB::new(255.0, 255.0, 255.0));
+
+
+    assert!(fractalCreator.get_range(999), Some(3));
+    assert!(fractalCreator.get_range(999), Some(3));
+    assert!(fractalCreator.get_range(999), Some(3));
 }

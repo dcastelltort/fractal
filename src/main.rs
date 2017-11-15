@@ -16,7 +16,7 @@ fn main() {
 	fractalCreator.add_range(0.5, rgb::RGB::new(255.0, 255.0, 0.0));
 	fractalCreator.add_range(1.0, rgb::RGB::new(255.0, 255.0, 255.0));
 
-	println!("{}",fractalCreator.get_range(999));
+	println!("{:?}",fractalCreator.get_range(999));
 
 	fractalCreator.add_zoom(zoom::Zoom::new(295, 202, 0.1));
 	fractalCreator.add_zoom(zoom::Zoom::new(312, 304, 0.1));
