@@ -6,3 +6,4 @@ authors = ["Damien Castelltort <dcastelltort@gmail.com>"]
 [dependencies]
 byteorder = "1.1.0"
 num = "0.1.40"
+clap = "2.27.1"
