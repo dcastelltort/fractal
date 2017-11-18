@@ -11,7 +11,7 @@ mod zoom;
 mod fractalcreator;
 
 fn main() {
-    let matches = App::new("Fractal Creator")
+    /*let matches = App::new("Fractal Creator")
                           .version("0.1")
                           .author("Damien Castelltort")
                           .about("Generates some mandelbrot fractal")
@@ -41,8 +41,9 @@ fn main() {
 		println!("{:?}", matches.value_of("width").unwrap());
 		println!("{:?}", matches.value_of("height").unwrap());
 		println!("{:?}", matches.value_of("output_file").unwrap());
-
-	if false {
+*/
+    let bFlag = true;
+	if bFlag {
 
 		let mut fractal_reator = fractalcreator::FractalCreator::new(800, 600);
 
