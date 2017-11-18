@@ -29,7 +29,7 @@ fn app() -> Result<(),&'static str> {
                                 .required(true)
                             )
                             .arg(Arg::with_name("output_file")
-                                .short("of")
+                                .short("o")
                                 .long("output_file")
                                 .takes_value(true)
                                 .required(true)
