@@ -1,21 +1,59 @@
 extern crate byteorder;
+extern crate num;
+
+extern crate clap;
+use clap::{Arg, App, SubCommand};
 
 mod bitmap;
+mod rgb;
+mod mandelbrot;
+mod zoom;
+mod fractalcreator;
 
 fn main() {
-    let w = 1024;
-    let h = 780;
-    let mut b = bitmap::Bitmap::new(w, h);
- 
-   for x in 0..w  {
-        for y in 0..h {
-            b.set_pixel(x, y, 0,0,255);
-        }
-    }
+    /*let matches = App::new("Fractal Creator")
+                          .version("0.1")
+                          .author("Damien Castelltort")
+                          .about("Generates some mandelbrot fractal")
+						  .arg(Arg::with_name("width")
+						  	.short("w")
+							.long("width")
+							.takes_value(true)
+							//.required(true)
+							.default_value("800")
+						  )
+						  .arg(Arg::with_name("height")
+						  	.short("h")
+							.long("height")
+							.takes_value(true)
+							//.required(true)
+							.default_value("600")
+						  )
+						  .arg(Arg::with_name("output_file")
+						  	.short("of")
+							.long("output_file")
+							.takes_value(true)
+							//.required(true)
+							.default_value("test.bmp")
+						  )
+						  .get_matches();
 
-    b.set_pixel(0, 0, 128,128,128);
-    b.set_pixel(w/2, h/2, 255,0,0);
-    println!("{:?}", b.get_pixel(w/2, h/2));
+		println!("{:?}", matches.value_of("width").unwrap());
+		println!("{:?}", matches.value_of("height").unwrap());
+		println!("{:?}", matches.value_of("output_file").unwrap());
+*/
+    let bFlag = true;
+	if bFlag {
 
-    b.write(String::from("test.bmp") );
+		let mut fractal_reator = fractalcreator::FractalCreator::new(800, 600);
+
+		fractal_reator.add_range(0.0, rgb::RGB::new(0.0, 0.0, 0.0));
+		fractal_reator.add_range(0.3, rgb::RGB::new(255.0, 0.0, 0.0));
+		fractal_reator.add_range(0.5, rgb::RGB::new(255.0, 255.0, 0.0));
+		fractal_reator.add_range(1.0, rgb::RGB::new(255.0, 255.0, 255.0));
+
+		fractal_reator.add_zoom(zoom::Zoom::new(295, 202, 0.1));
+		fractal_reator.add_zoom(zoom::Zoom::new(312, 304, 0.1));
+		fractal_reator.run(String::from("test.bmp"));
+	}
 }
