@@ -54,16 +54,16 @@ fn app() -> Result<(),&'static str> {
         return Err("invalid output file");
     }
 
-    let mut fractal_reator = fractalcreator::FractalCreator::new(width as i32, height as i32);
+    let mut fractal_creator = fractalcreator::FractalCreator::new(width as i32, height as i32);
 
-    fractal_reator.add_range(0.0, rgb::RGB::new(0.0, 0.0, 0.0));
-    fractal_reator.add_range(0.3, rgb::RGB::new(255.0, 0.0, 0.0));
-    fractal_reator.add_range(0.5, rgb::RGB::new(255.0, 255.0, 0.0));
-    fractal_reator.add_range(1.0, rgb::RGB::new(255.0, 255.0, 255.0));
+    fractal_creator.add_range(0.0, rgb::RGB::new(0.0, 0.0, 0.0));
+    fractal_creator.add_range(0.3, rgb::RGB::new(255.0, 0.0, 0.0));
+    fractal_creator.add_range(0.5, rgb::RGB::new(255.0, 255.0, 0.0));
+    fractal_creator.add_range(1.0, rgb::RGB::new(255.0, 255.0, 255.0));
 
-    fractal_reator.add_zoom(zoom::Zoom::new(295, 202, 0.1));
-    fractal_reator.add_zoom(zoom::Zoom::new(312, 304, 0.1));
-    fractal_reator.run(String::from(output_file));
+    fractal_creator.add_zoom(zoom::Zoom::new(295, 202, 0.1));
+    fractal_creator.add_zoom(zoom::Zoom::new(312, 304, 0.1));
+    fractal_creator.run(String::from(output_file));
 
     Ok(())
 }
