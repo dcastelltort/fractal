@@ -133,11 +133,7 @@ impl Fractal {
     }
 
 	fn draw_fractal(&mut self, bitmap: &mut Bitmap) {
-        
-        self.calculate_iteration();
-        self.calculate_total_iterations();
-        self.calculate_range_totals();
-        
+
         let start_color = RGB::new(0.0, 0.0, 0.0);
 	    let end_color = RGB::new(0.0, 0.0, 255.0);
 	    let color_diff = end_color - start_color.clone();
@@ -169,6 +165,12 @@ impl Fractal {
         }
     }
 
+    fn render(&mut self, bitmap: &mut Bitmap) {
+        self.calculate_iteration();
+        self.calculate_total_iterations();
+        self.calculate_range_totals();
+        self.draw_fractal(bitmap);
+    }
 }
 
 #[test]
@@ -200,7 +202,7 @@ impl FractalCreator {
     pub fn generateFractal(&self, fractal: &mut Fractal, output_file_name: String) {
         let mut bitmap = Bitmap::new(fractal.width,fractal.height);
    
-        fractal.draw_fractal(&mut bitmap);
+        fractal.render(&mut bitmap);
         bitmap.write(output_file_name);
     }
 }
