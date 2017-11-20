@@ -1,7 +1,8 @@
 use std::ops::{Add, Sub};
 use std::f64;
 
-#[derive(Debug, Clone)]
+
+#[derive(Debug, Clone,Serialize, Deserialize)]
 pub struct RGB {
     pub r : f64,
     pub g : f64,

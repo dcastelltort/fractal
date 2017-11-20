@@ -4,35 +4,46 @@ use zoom::{Zoom, ZoomList};
 use rgb::{RGB};
 use mandelbrot;
 
-pub struct FractalCreator {
 
+#[derive(Debug, Clone,Serialize, Deserialize)]
+pub struct RangeColor {
+    range_end : i32,
+    color : RGB
+}
+
+impl RangeColor {
+    pub fn new(range_end: f64, color : RGB) -> RangeColor {
+        RangeColor{ 
+            range_end : (range_end * mandelbrot::MAX_ITERATIONS as f64) as i32, 
+            color : color
+            }
+    }
+}
+
+#[derive(Debug, Clone,Serialize, Deserialize)]
+pub struct Fractal {
 	width : i32,
 	height : i32,
 	histogram : Vec<i32>,
     fractal : Vec<i32>,
-	bitmap : Bitmap,
 	zoom_list : ZoomList,
 	total : i32,
-
-	ranges: Vec<i32>,
-	colors : Vec<RGB>,
+	ranges_colors: Vec<RangeColor>,
 	range_totals : Vec<i32>,
-
 	got_first_range : bool
 }
 
-impl FractalCreator {
-    pub fn new(width : i32, height: i32) -> FractalCreator {
-        let mut f = FractalCreator {
+
+impl Fractal {
+    pub fn new(width : i32, height: i32) -> Fractal {
+        let mut f = Fractal {
             width: width,
             height: height,
             histogram : vec![0;mandelbrot::MAX_ITERATIONS as usize],
             fractal : vec![0;(width * height) as usize],
-            bitmap : Bitmap::new(width,height),
             zoom_list : ZoomList::new(width,height),
             total : 0,
-            ranges : vec![],
-            colors : vec![],
+            ranges_colors : vec![],
             range_totals : vec![],
             got_first_range : false
         };
@@ -44,11 +55,11 @@ impl FractalCreator {
        let mut range : usize = 0;
        let mut found = false;
 
-        for i in 0..self.ranges.len() {
+        for i in 0..self.ranges_colors.len() {
             range = i;
 
-            assert!(range < self.ranges.len());
-            if self.ranges[range] > iterations {
+            assert!(range < self.ranges_colors.len());
+            if self.ranges_colors[range].range_end > iterations {
                 found = true;
                 break;
             }
@@ -65,8 +76,7 @@ impl FractalCreator {
 
 	
 	pub fn add_range(&mut self, range_end: f64, rgb: RGB) {
-        self.ranges.push( (range_end * mandelbrot::MAX_ITERATIONS as f64) as i32);
-	    self.colors.push(rgb);
+        self.ranges_colors.push( RangeColor::new(range_end, rgb));
 
         if self.got_first_range {
             self.range_totals.push(0);
@@ -79,15 +89,6 @@ impl FractalCreator {
 	pub fn add_zoom(&mut self, zoom: Zoom) {
         self.zoom_list.add(zoom);
     }
-
-	pub fn run(&mut self, name: String) {
-        self.calculate_iteration();
-        self.calculate_total_iterations();
-        self.calculate_range_totals();
-        self.draw_fractal();
-        self.write_bitmap(name);
-    }
-
 
     fn calculate_iteration(&mut self) {
         for y in 0..self.height {
@@ -123,7 +124,7 @@ impl FractalCreator {
         for i in 0..mandelbrot::MAX_ITERATIONS {
             let pixels : i32 = self.histogram[i as usize];
 
-            if i >= self.ranges[range_index+1]  {
+            if i >= self.ranges_colors[range_index+1].range_end  {
                 range_index += 1;
             }
 
@@ -131,7 +132,12 @@ impl FractalCreator {
         }
     }
 
-	fn draw_fractal(&mut self) {
+	fn draw_fractal(&mut self, bitmap: &mut Bitmap) {
+        
+        self.calculate_iteration();
+        self.calculate_total_iterations();
+        self.calculate_range_totals();
+        
         let start_color = RGB::new(0.0, 0.0, 0.0);
 	    let end_color = RGB::new(0.0, 0.0, 255.0);
 	    let color_diff = end_color - start_color.clone();
@@ -158,30 +164,43 @@ impl FractalCreator {
                     blue = (start_color.b + color_diff.b * hue) as u8;
                 }
 
-                self.bitmap.set_pixel(x, y, red, green, blue);
+                bitmap.set_pixel(x, y, red, green, blue);
             }
         }
-    }
-
-	fn write_bitmap(&self, name : String) {
-       self.bitmap.write(name);
     }
 
 }
 
 #[test]
 fn test_get_ranges() {
-    let mut fractal_creator = FractalCreator::new(800, 600);
+    let mut fractal = Fractal::new(800, 600);
 
-    assert!(fractal_creator.get_range(999).is_none());
+    assert!(fractal.get_range(999).is_none());
 
-	fractal_creator.add_range(0.0, RGB::new(0.0, 0.0, 0.0));
-	fractal_creator.add_range(0.3, RGB::new(255.0, 0.0, 0.0));
-	fractal_creator.add_range(0.5, RGB::new(255.0, 255.0, 0.0));
-	fractal_creator.add_range(1.0, RGB::new(255.0, 255.0, 255.0));
+	fractal.add_range(0.0, RGB::new(0.0, 0.0, 0.0));
+	fractal.add_range(0.3, RGB::new(255.0, 0.0, 0.0));
+	fractal.add_range(0.5, RGB::new(255.0, 255.0, 0.0));
+	fractal.add_range(1.0, RGB::new(255.0, 255.0, 255.0));
 
 
-    assert_eq!(fractal_creator.get_range(299), Some(1));
-    assert_eq!(fractal_creator.get_range(499), Some(2));
-    assert_eq!(fractal_creator.get_range(999), Some(3));
+    assert_eq!(fractal.get_range(299), Some(1));
+    assert_eq!(fractal.get_range(499), Some(2));
+    assert_eq!(fractal.get_range(999), Some(3));
+}
+
+pub struct FractalCreator {
+
+}
+
+impl FractalCreator {
+    pub fn new() -> FractalCreator {
+        FractalCreator{}
+    }
+
+    pub fn generateFractal(&self, fractal: &mut Fractal, output_file_name: String) {
+        let mut bitmap = Bitmap::new(fractal.width,fractal.height);
+   
+        fractal.draw_fractal(&mut bitmap);
+        bitmap.write(output_file_name);
+    }
 }

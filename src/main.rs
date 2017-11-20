@@ -4,12 +4,18 @@ extern crate num;
 extern crate clap;
 use clap::{Arg, App};
 
+extern crate serde;
+extern crate serde_json;
+
+#[macro_use]
+extern crate serde_derive;
+
+
 mod bitmap;
 mod rgb;
 mod mandelbrot;
 mod zoom;
 mod fractalcreator;
-
 
 fn app() -> Result<(),&'static str> {
     let matches = App::new("Fractal Creator")
@@ -54,16 +60,19 @@ fn app() -> Result<(),&'static str> {
         return Err("invalid output file");
     }
 
-    let mut fractal_creator = fractalcreator::FractalCreator::new(width as i32, height as i32);
 
-    fractal_creator.add_range(0.0, rgb::RGB::new(0.0, 0.0, 0.0));
-    fractal_creator.add_range(0.3, rgb::RGB::new(255.0, 0.0, 0.0));
-    fractal_creator.add_range(0.5, rgb::RGB::new(255.0, 255.0, 0.0));
-    fractal_creator.add_range(1.0, rgb::RGB::new(255.0, 255.0, 255.0));
+    let mut fractal = fractalcreator::Fractal::new(width as i32, height as i32);
 
-    fractal_creator.add_zoom(zoom::Zoom::new(295, 202, 0.1));
-    fractal_creator.add_zoom(zoom::Zoom::new(312, 304, 0.1));
-    fractal_creator.run(String::from(output_file));
+    fractal.add_range(0.0, rgb::RGB::new(0.0, 0.0, 0.0));
+    fractal.add_range(0.3, rgb::RGB::new(255.0, 0.0, 0.0));
+    fractal.add_range(0.5, rgb::RGB::new(255.0, 255.0, 0.0));
+    fractal.add_range(1.0, rgb::RGB::new(255.0, 255.0, 255.0));
+
+    fractal.add_zoom(zoom::Zoom::new(295, 202, 0.1));
+    fractal.add_zoom(zoom::Zoom::new(312, 304, 0.1));
+
+    let fractal_creator = fractalcreator::FractalCreator::new();
+    fractal_creator.generateFractal(&mut fractal, String::from(output_file));
 
     Ok(())
 }
