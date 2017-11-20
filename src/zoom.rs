@@ -1,5 +1,5 @@
 
-#[derive(Debug,Clone,Serialize, Deserialize)]
+#[derive(Debug,Clone,PartialEq, Serialize, Deserialize)]
 pub struct Zoom {
 	x : i32, 
 	y: i32,

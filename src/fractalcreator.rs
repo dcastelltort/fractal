@@ -4,17 +4,22 @@ use zoom::{Zoom, ZoomList};
 use rgb::{RGB};
 use mandelbrot;
 
+use std::error::Error;
+use std::fs::File;
+//use std::path::Path;
 
-#[derive(Debug, Clone,Serialize, Deserialize)]
+use serde_json;
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct RangeColor {
-    range_end : i32,
+    range_end : f64,
     color : RGB
 }
 
 impl RangeColor {
     pub fn new(range_end: f64, color : RGB) -> RangeColor {
         RangeColor{ 
-            range_end : (range_end * mandelbrot::MAX_ITERATIONS as f64) as i32, 
+            range_end : range_end, 
             color : color
             }
     }
@@ -59,7 +64,7 @@ impl Fractal {
             range = i;
 
             assert!(range < self.ranges_colors.len());
-            if self.ranges_colors[range].range_end > iterations {
+            if (self.ranges_colors[range].range_end * mandelbrot::MAX_ITERATIONS as f64) as i32 > iterations {
                 found = true;
                 break;
             }
@@ -124,7 +129,7 @@ impl Fractal {
         for i in 0..mandelbrot::MAX_ITERATIONS {
             let pixels : i32 = self.histogram[i as usize];
 
-            if i >= self.ranges_colors[range_index+1].range_end  {
+            if i >= (self.ranges_colors[range_index+1].range_end * mandelbrot::MAX_ITERATIONS as f64) as i32  {
                 range_index += 1;
             }
 
@@ -205,4 +210,65 @@ impl FractalCreator {
         fractal.render(&mut bitmap);
         bitmap.write(output_file_name);
     }
+}
+
+
+#[derive(Debug, Clone,Serialize, Deserialize, PartialEq)]
+struct FractalFile {
+    width: i32,
+    height: i32,
+    ranges : Vec<RangeColor>,
+    zooms : Vec<Zoom>
+}
+
+impl FractalFile {
+    pub fn new() -> FractalFile {
+        FractalFile {
+            width : 0,
+            height : 0,
+            ranges : vec![],
+            zooms: vec![]
+        }
+    }
+}
+pub fn fractal_from_file(filename: String) -> Result<Fractal, Box<Error>> {
+    
+    let file = File::open(filename)?;
+
+    let fractal_file : FractalFile = serde_json::from_reader(file)?;
+
+    let mut fractal = Fractal::new(fractal_file.width, fractal_file.height);
+    
+    for range in fractal_file.ranges {
+        fractal.add_range(range.range_end, range.color);
+    }
+
+    for zoom in fractal_file.zooms {
+        fractal.add_zoom(zoom);
+    }
+    Ok(fractal)
+}
+
+#[test]
+fn test_fractal_file() {
+    let mut fractal_file = FractalFile::new();
+
+    fractal_file.width = 800;
+    fractal_file.height = 600;
+    fractal_file.ranges.push(RangeColor::new(0.0, RGB::new(0.0, 0.0, 0.0)));
+    fractal_file.ranges.push(RangeColor::new(0.3, RGB::new(255.0, 0.0, 0.0)));
+    fractal_file.ranges.push(RangeColor::new(0.5, RGB::new(255.0, 255.0, 0.0)));
+    fractal_file.ranges.push(RangeColor::new(1.0, RGB::new(255.0, 255.0, 255.0)));
+
+    fractal_file.zooms.push(Zoom::new(295, 202, 0.1));
+    fractal_file.zooms.push(Zoom::new(312, 304, 0.1));
+
+    let json = serde_json::to_string(&fractal_file).unwrap();
+
+    let ref_json = "{\"width\":800,\"height\":600,\"ranges\":[{\"range_end\":0.0,\"color\":{\"r\":0.0,\"g\":0.0,\"b\":0.0}},{\"range_end\":0.3,\"color\":{\"r\":255.0,\"g\":0.0,\"b\":0.0}},{\"range_end\":0.5,\"color\":{\"r\":255.0,\"g\":255.0,\"b\":0.0}},{\"range_end\":1.0,\"color\":{\"r\":255.0,\"g\":255.0,\"b\":255.0}}],\"zooms\":[{\"x\":295,\"y\":202,\"scale\":0.1},{\"x\":312,\"y\":304,\"scale\":0.1}]}";
+    assert_eq!(json, String::from(ref_json));
+
+
+    let fractal_parse_file : FractalFile = serde_json::from_str(ref_json).unwrap();
+    assert_eq!(fractal_parse_file, fractal_file);
 }
