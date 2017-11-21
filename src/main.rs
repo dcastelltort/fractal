@@ -27,11 +27,15 @@ fn app() -> Result<(),&'static str> {
                                 .short("w")
                                 .long("width")
                                 .takes_value(true)
-                                .required(true)
                             )
                             .arg(Arg::with_name("height")
                                 .short("h")
                                 .long("height")
+                                .takes_value(true)
+                            )
+                             .arg(Arg::with_name("input_file")
+                                .short("i")
+                                .long("input_file")
                                 .takes_value(true)
                                 .required(true)
                             )
@@ -52,17 +56,28 @@ fn app() -> Result<(),&'static str> {
         Ok(n) => n,
         Err(_) => 0
     };
+    
     let output_file = matches.value_of("output_file").unwrap_or("");
+    let input_file = matches.value_of("input_file").unwrap_or("");
 
-    if width == 0 || height == 0 {
-        return Err("invalid width/height");
+
+    if matches.is_present("width") && width == 0 {
+        return Err("invalid width");
     }
+
+    if matches.is_present("height") && width == 0 {
+        return Err("invalid height");
+    }
+
     if output_file.is_empty() {
         return Err("invalid output file");
     }
+    if input_file.is_empty() {
+        return Err("invalid input file");
+    }
 
 
-    let mut fractal = fractalcreator::fractal_from_file(String::from("examples/fractal.json")).unwrap();
+    let mut fractal = fractalcreator::fractal_from_file(String::from(input_file)).unwrap();
 
     let fractal_creator = fractalcreator::FractalCreator::new();
     fractal_creator.generateFractal(&mut fractal, String::from(output_file));
