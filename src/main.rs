@@ -65,7 +65,7 @@ fn app() -> Result<(),&'static str> {
         return Err("invalid width");
     }
 
-    if matches.is_present("height") && width == 0 {
+    if matches.is_present("height") && height == 0 {
         return Err("invalid height");
     }
 
