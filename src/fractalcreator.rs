@@ -6,7 +6,7 @@ use mandelbrot;
 
 use std::error::Error;
 use std::fs::File;
-//use std::path::Path;
+use std::io;
 
 use serde_json;
 
@@ -56,7 +56,8 @@ impl Fractal {
         f
     }
 
-   pub fn get_range(&self, iterations: i32) -> Option<i32> {
+    #[allow(dead_code)]
+    pub fn get_range(&self, iterations: i32) -> Option<i32> {
        let mut range : usize = 0;
        let mut found = false;
 
@@ -204,11 +205,14 @@ impl FractalCreator {
         FractalCreator{}
     }
 
-    pub fn generateFractal(&self, fractal: &mut Fractal, output_file_name: String) {
+    pub fn generate_fractal(&self, fractal: &mut Fractal, output_file_name: String) -> Result<(), io::Error> {
         let mut bitmap = Bitmap::new(fractal.width,fractal.height);
    
         fractal.render(&mut bitmap);
-        bitmap.write(output_file_name);
+        match bitmap.write(output_file_name) {
+        Ok(_) => Ok(()),
+        Err(e) => Err(e)
+        }
     }
 }
 
@@ -222,6 +226,7 @@ struct FractalFile {
 }
 
 impl FractalFile {
+    #[allow(dead_code)]
     pub fn new() -> FractalFile {
         FractalFile {
             width : 0,

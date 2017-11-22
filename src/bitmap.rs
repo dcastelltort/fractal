@@ -105,6 +105,7 @@ impl Bitmap {
         self.pixels[pos+2] = red;
     }
 
+    #[allow(dead_code)]
     pub fn get_pixel(self: &Bitmap, x: i32, y: i32) -> (u8, u8, u8) {
         let index = self.index_from_coord( x, y);
         (self.pixels[index+2], self.pixels[index+1], self.pixels[index])

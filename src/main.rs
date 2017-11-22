@@ -10,7 +10,6 @@ extern crate serde_json;
 #[macro_use]
 extern crate serde_derive;
 
-use std::error::Error;
 
 mod bitmap;
 mod rgb;
@@ -80,9 +79,11 @@ fn app() -> Result<(),&'static str> {
     let mut fractal = fractalcreator::fractal_from_file(String::from(input_file)).unwrap();
 
     let fractal_creator = fractalcreator::FractalCreator::new();
-    fractal_creator.generateFractal(&mut fractal, String::from(output_file));
-
-    Ok(())
+    
+    match fractal_creator.generate_fractal(&mut fractal, String::from(output_file)) {
+        Ok(_) => Ok(()),
+        Err(_) => Err("error generating fractal")
+    }
 }
 
 fn main() {
