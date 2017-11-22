@@ -7,3 +7,6 @@ authors = ["Damien Castelltort <dcastelltort@gmail.com>"]
 byteorder = "1.1.0"
 num = "0.1.40"
 clap = "2.27.1"
+serde = "1.0.21"
+serde_json = "1.0.6"
+serde_derive = "1.0.21"

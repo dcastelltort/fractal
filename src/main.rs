@@ -4,12 +4,18 @@ extern crate num;
 extern crate clap;
 use clap::{Arg, App};
 
+extern crate serde;
+extern crate serde_json;
+
+#[macro_use]
+extern crate serde_derive;
+
+
 mod bitmap;
 mod rgb;
 mod mandelbrot;
 mod zoom;
 mod fractalcreator;
-
 
 fn app() -> Result<(),&'static str> {
     let matches = App::new("Fractal Creator")
@@ -20,11 +26,15 @@ fn app() -> Result<(),&'static str> {
                                 .short("w")
                                 .long("width")
                                 .takes_value(true)
-                                .required(true)
                             )
                             .arg(Arg::with_name("height")
                                 .short("h")
                                 .long("height")
+                                .takes_value(true)
+                            )
+                             .arg(Arg::with_name("input_file")
+                                .short("i")
+                                .long("input_file")
                                 .takes_value(true)
                                 .required(true)
                             )
@@ -45,27 +55,35 @@ fn app() -> Result<(),&'static str> {
         Ok(n) => n,
         Err(_) => 0
     };
+    
     let output_file = matches.value_of("output_file").unwrap_or("");
+    let input_file = matches.value_of("input_file").unwrap_or("");
 
-    if width == 0 || height == 0 {
-        return Err("invalid width/height");
+
+    if matches.is_present("width") && width == 0 {
+        return Err("invalid width");
     }
+
+    if matches.is_present("height") && height == 0 {
+        return Err("invalid height");
+    }
+
     if output_file.is_empty() {
         return Err("invalid output file");
     }
+    if input_file.is_empty() {
+        return Err("invalid input file");
+    }
 
-    let mut fractal_creator = fractalcreator::FractalCreator::new(width as i32, height as i32);
 
-    fractal_creator.add_range(0.0, rgb::RGB::new(0.0, 0.0, 0.0));
-    fractal_creator.add_range(0.3, rgb::RGB::new(255.0, 0.0, 0.0));
-    fractal_creator.add_range(0.5, rgb::RGB::new(255.0, 255.0, 0.0));
-    fractal_creator.add_range(1.0, rgb::RGB::new(255.0, 255.0, 255.0));
+    let mut fractal = fractalcreator::fractal_from_file(String::from(input_file)).unwrap();
 
-    fractal_creator.add_zoom(zoom::Zoom::new(295, 202, 0.1));
-    fractal_creator.add_zoom(zoom::Zoom::new(312, 304, 0.1));
-    fractal_creator.run(String::from(output_file));
-
-    Ok(())
+    let fractal_creator = fractalcreator::FractalCreator::new();
+    
+    match fractal_creator.generate_fractal(&mut fractal, String::from(output_file)) {
+        Ok(_) => Ok(()),
+        Err(_) => Err("error generating fractal")
+    }
 }
 
 fn main() {

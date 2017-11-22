@@ -1,5 +1,5 @@
 
-#[derive(Clone)]
+#[derive(Debug,Clone,PartialEq, Serialize, Deserialize)]
 pub struct Zoom {
 	x : i32, 
 	y: i32,
@@ -12,6 +12,7 @@ impl Zoom {
     }
 }
 
+#[derive(Debug, Clone,Serialize, Deserialize)]
 pub struct ZoomList {
 
 	x_center : f64,
