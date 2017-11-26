@@ -315,11 +315,16 @@ impl FractalFile {
         }
     }
 }
-pub fn fractal_from_file(filename: String) -> Result<Fractal, Box<Error>> {
+pub fn fractal_from_file(filename: String, override_width: u32, override_height: u32) -> Result<Fractal, Box<Error>> {
     
     let file = File::open(filename)?;
 
-    let fractal_file : FractalFile = serde_json::from_reader(file)?;
+    let mut fractal_file : FractalFile = serde_json::from_reader(file)?;
+
+    if override_width !=0 && override_height != 0{
+        fractal_file.width = override_width as i32;
+        fractal_file.height = override_height as i32;
+    }
 
     let mut fractal = Fractal::new(fractal_file.width, fractal_file.height);
     
