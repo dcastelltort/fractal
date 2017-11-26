@@ -10,6 +10,8 @@ use std::io;
 
 use serde_json;
 
+use crossbeam;
+
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct RangeColor {
     range_end : f64,
@@ -30,7 +32,7 @@ pub struct Fractal {
 	width : i32,
 	height : i32,
 	histogram : Vec<i32>,
-    fractal : Vec<i32>,
+    fractal : Vec<u32>,
 	zoom_list : ZoomList,
 	total : i32,
 	ranges_colors: Vec<RangeColor>,
@@ -101,7 +103,7 @@ impl Fractal {
             for x in 0..self.width {
                 let coords = self.zoom_list.do_zoom(x, y);
 
-                let iterations : i32 = mandelbrot::get_iterations(coords.0,coords.1);
+                let iterations : u32 = mandelbrot::get_iterations(coords.0,coords.1);
 
                 let i = (y * self.width + x) as usize;
                 assert!(i < self.fractal.capacity(), "i : {} , cap: {}", i, self.fractal.capacity());
@@ -116,10 +118,25 @@ impl Fractal {
 	    }
     }
 
-	fn calculate_total_iterations(&mut self) {
+	fn calculate_total_iterations(&mut self, num_threads: u32) {
         
-        for i in 0..mandelbrot::MAX_ITERATIONS {
-            self.total += self.histogram[i as usize];
+        let mut handles = vec![];
+        let chunk_size = (mandelbrot::MAX_ITERATIONS / num_threads) as usize;
+        crossbeam::scope(|scope| {
+            for chunk in self.histogram.chunks(chunk_size) {
+                let handle = scope.spawn(move || -> i32 {
+                    let mut subtotal : i32 = 0;
+                    for h in chunk {
+                        subtotal += h;
+                    }
+                    subtotal
+                });
+                handles.push(handle);
+            }
+         });
+
+        for handle in handles {
+            self.total += handle.join();
         }
     }
 
@@ -130,7 +147,7 @@ impl Fractal {
         for i in 0..mandelbrot::MAX_ITERATIONS {
             let pixels : i32 = self.histogram[i as usize];
 
-            if i >= (self.ranges_colors[range_index+1].range_end * mandelbrot::MAX_ITERATIONS as f64) as i32  {
+            if i >= (self.ranges_colors[range_index+1].range_end * mandelbrot::MAX_ITERATIONS as f64) as u32  {
                 range_index += 1;
             }
 
@@ -151,7 +168,7 @@ impl Fractal {
                 let mut green : u8 = 0;
                 let mut blue : u8 = 0;
 
-                let iterations : i32 = self.fractal[(y * self.width + x) as usize];
+                let iterations : u32 = self.fractal[(y * self.width + x) as usize];
 
                 if iterations != mandelbrot::MAX_ITERATIONS {
 
@@ -171,9 +188,9 @@ impl Fractal {
         }
     }
 
-    fn render(&mut self, bitmap: &mut Bitmap) {
+    fn render(&mut self, bitmap: &mut Bitmap, num_threads: u32) {
         self.calculate_iteration();
-        self.calculate_total_iterations();
+        self.calculate_total_iterations(num_threads);
         self.calculate_range_totals();
         self.draw_fractal(bitmap);
     }
@@ -205,10 +222,10 @@ impl FractalCreator {
         FractalCreator{}
     }
 
-    pub fn generate_fractal(&self, fractal: &mut Fractal, output_file_name: String) -> Result<(), io::Error> {
+    pub fn generate_fractal(&self, fractal: &mut Fractal, output_file_name: String, num_threads: u32) -> Result<(), io::Error> {
         let mut bitmap = Bitmap::new(fractal.width,fractal.height);
    
-        fractal.render(&mut bitmap);
+        fractal.render(&mut bitmap, num_threads);
         match bitmap.write(output_file_name) {
         Ok(_) => Ok(()),
         Err(e) => Err(e)
