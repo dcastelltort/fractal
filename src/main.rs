@@ -98,7 +98,7 @@ fn app() -> Result<(),&'static str> {
     }
 
     println!("num threads: {:?}", threads);
-    let mut fractal = fractalcreator::fractal_from_file(String::from(input_file)).unwrap();
+    let mut fractal = fractalcreator::fractal_from_file(String::from(input_file), width, height).unwrap();
 
     let fractal_creator = fractalcreator::FractalCreator::new();
     
