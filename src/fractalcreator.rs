@@ -10,6 +10,11 @@ use std::io;
 
 use serde_json;
 
+use crossbeam;
+use std::sync::mpsc;
+
+use hprof::{Profiler};
+
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct RangeColor {
     range_end : f64,
@@ -30,7 +35,7 @@ pub struct Fractal {
 	width : i32,
 	height : i32,
 	histogram : Vec<i32>,
-    fractal : Vec<i32>,
+    fractal : Vec<u32>,
 	zoom_list : ZoomList,
 	total : i32,
 	ranges_colors: Vec<RangeColor>,
@@ -96,30 +101,66 @@ impl Fractal {
         self.zoom_list.add(zoom);
     }
 
-    fn calculate_iteration(&mut self) {
-        for y in 0..self.height {
-            for x in 0..self.width {
-                let coords = self.zoom_list.do_zoom(x, y);
+    fn calculate_iteration(&mut self, num_threads: u32) {
+        
+        let ys : Vec<_> = (0..self.height).collect();
+        let (tx, rx) = mpsc::channel();
+        let width = self.width.clone();
+        let chunk_size : usize = (self.height as u32/num_threads) as usize;
+        crossbeam::scope(|scoped| {
+            for y_chunk in ys.chunks(chunk_size) {
+                let tx_clone = tx.clone();
+                let zoom_list = self.zoom_list.clone();
+                scoped.spawn(move || {
+                    for ity in y_chunk {
+                        let y = *ity;
+                        for x in 0..width {
+                            let coords = zoom_list.do_zoom(x, y);
 
-                let iterations : i32 = mandelbrot::get_iterations(coords.0,coords.1);
+                            let iterations : u32 = mandelbrot::get_iterations(coords.0,coords.1);
 
-                let i = (y * self.width + x) as usize;
-                assert!(i < self.fractal.capacity(), "i : {} , cap: {}", i, self.fractal.capacity());
-
-                self.fractal[i] = iterations;
-
-                if iterations != mandelbrot::MAX_ITERATIONS {
-                    self.histogram[iterations as usize] += 1;
-                }
-
+                            let i = (y * width + x) as usize;
+                            
+                            
+                            tx_clone.send((i, iterations)).unwrap();
+                        }
+                    }
+                });
             }
-	    }
+        });
+        drop(tx); //unused
+
+        for received in rx {
+            let i = received.0;
+            let iterations = received.1;
+            assert!(i < self.fractal.capacity(), "i : {} , cap: {}", i, self.fractal.capacity());
+            self.fractal[i] = iterations;
+            if iterations != mandelbrot::MAX_ITERATIONS {
+                self.histogram[iterations as usize] += 1;
+            }
+        }
+
     }
 
-	fn calculate_total_iterations(&mut self) {
+	fn calculate_total_iterations(&mut self, num_threads: u32) {
         
-        for i in 0..mandelbrot::MAX_ITERATIONS {
-            self.total += self.histogram[i as usize];
+        let mut handles = vec![];
+        let chunk_size = (mandelbrot::MAX_ITERATIONS / num_threads) as usize;
+        crossbeam::scope(|scope| {
+            for chunk in self.histogram.chunks(chunk_size) {
+                let handle = scope.spawn(move || -> i32 {
+                    let mut subtotal : i32 = 0;
+                    for h in chunk {
+                        subtotal += h;
+                    }
+                    subtotal
+                });
+                handles.push(handle);
+            }
+         });
+
+        for handle in handles {
+            self.total += handle.join();
         }
     }
 
@@ -130,7 +171,7 @@ impl Fractal {
         for i in 0..mandelbrot::MAX_ITERATIONS {
             let pixels : i32 = self.histogram[i as usize];
 
-            if i >= (self.ranges_colors[range_index+1].range_end * mandelbrot::MAX_ITERATIONS as f64) as i32  {
+            if i >= (self.ranges_colors[range_index+1].range_end * mandelbrot::MAX_ITERATIONS as f64) as u32  {
                 range_index += 1;
             }
 
@@ -138,44 +179,82 @@ impl Fractal {
         }
     }
 
-	fn draw_fractal(&mut self, bitmap: &mut Bitmap) {
+	fn draw_fractal(&self, bitmap: &mut Bitmap, num_threads : u32) {
 
-        let start_color = RGB::new(0.0, 0.0, 0.0);
-	    let end_color = RGB::new(0.0, 0.0, 255.0);
-	    let color_diff = end_color - start_color.clone();
+        let (tx, rx) = mpsc::channel();
+        let ys : Vec<_> = (0..self.height).collect();
+        let chunk_size : usize = (self.height as u32 / num_threads) as usize;
+        crossbeam::scope(|scoped| {      
+            for y_chunk in ys.chunks(chunk_size) {
+                let tx_clone = tx.clone();
+                let width = self.width;
+        
+                scoped.spawn(move || {
+                    let start_color = RGB::new(0.0, 0.0, 0.0);
+                    let end_color = RGB::new(0.0, 0.0, 255.0);
+                    let color_diff = end_color - start_color.clone();
 
-        for y in 0..self.height {
-            for x in 0..self.width {
+                    for ity in y_chunk {
+                        let y =  *ity;
+                        for x in 0..width {
+                            let mut red : u8 = 0;
+                            let mut green : u8 = 0;
+                            let mut blue : u8 = 0;
+                            
+                            
+                            let iterations : u32 = self.fractal[(y * width + x) as usize];
 
-                let mut red : u8 = 0;
-                let mut green : u8 = 0;
-                let mut blue : u8 = 0;
+                            if iterations != mandelbrot::MAX_ITERATIONS {
 
-                let iterations : i32 = self.fractal[(y * self.width + x) as usize];
+                                let mut hue : f64 = 0.0;
 
-                if iterations != mandelbrot::MAX_ITERATIONS {
+                                for i in 0..iterations {
+                                    hue += self.histogram[i as usize] as f64 / self.total as f64;
+                                }
 
-                    let mut hue : f64 = 0.0;
-
-                    for i in 0..iterations {
-                        hue += self.histogram[i as usize] as f64 / self.total as f64;
+                                red = (start_color.r + color_diff.r * hue) as u8;
+                                green = (start_color.g + color_diff.g * hue) as u8;
+                                blue = (start_color.b + color_diff.b * hue) as u8;
+                                
+                            }
+                            tx_clone.send((x, y, red,green,blue)).unwrap();
+                        }
                     }
-
-                    red = (start_color.r + color_diff.r * hue) as u8;
-                    green = (start_color.g + color_diff.g * hue) as u8;
-                    blue = (start_color.b + color_diff.b * hue) as u8;
-                }
-
-                bitmap.set_pixel(x, y, red, green, blue);
+                });
             }
+        });
+        
+        drop(tx);
+
+        for received in rx {
+            let color = received;
+            bitmap.set_pixel(color.0, color.1, color.2, color.3, color.4);
         }
     }
 
-    fn render(&mut self, bitmap: &mut Bitmap) {
-        self.calculate_iteration();
-        self.calculate_total_iterations();
-        self.calculate_range_totals();
-        self.draw_fractal(bitmap);
+    fn render(&mut self, bitmap: &mut Bitmap, num_threads: u32) {
+        let profiler = Profiler::new("render");
+        
+        {   
+            let _p = profiler.enter("calculate_iteration");
+            self.calculate_iteration(num_threads);
+        }
+        
+        {
+            let _p = profiler.enter("calculate_total_iterations");
+            self.calculate_total_iterations(num_threads);
+        }
+
+        {
+            let _p = profiler.enter("calculate_range_totals");
+            self.calculate_range_totals();
+        }
+        {
+            let _p = profiler.enter("draw_fractal");
+            self.draw_fractal(bitmap, num_threads);
+        }
+        
+        profiler.print_timing();
     }
 }
 
@@ -205,10 +284,10 @@ impl FractalCreator {
         FractalCreator{}
     }
 
-    pub fn generate_fractal(&self, fractal: &mut Fractal, output_file_name: String) -> Result<(), io::Error> {
+    pub fn generate_fractal(&self, fractal: &mut Fractal, output_file_name: String, num_threads: u32) -> Result<(), io::Error> {
         let mut bitmap = Bitmap::new(fractal.width,fractal.height);
    
-        fractal.render(&mut bitmap);
+        fractal.render(&mut bitmap, num_threads);
         match bitmap.write(output_file_name) {
         Ok(_) => Ok(()),
         Err(e) => Err(e)
