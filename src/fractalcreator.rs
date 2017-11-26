@@ -101,24 +101,45 @@ impl Fractal {
         self.zoom_list.add(zoom);
     }
 
-    fn calculate_iteration(&mut self) {
-        for y in 0..self.height {
-            for x in 0..self.width {
-                let coords = self.zoom_list.do_zoom(x, y);
+    fn calculate_iteration(&mut self, num_threads: u32) {
+        
+        let ys : Vec<_> = (0..self.height).collect();
+        let (tx, rx) = mpsc::channel();
+        let width = self.width.clone();
+        let chunk_size : usize = (self.height as u32/num_threads) as usize;
+        crossbeam::scope(|scoped| {
+            for y_chunk in ys.chunks(chunk_size) {
+                let tx_clone = tx.clone();
+                let zoom_list = self.zoom_list.clone();
+                scoped.spawn(move || {
+                    for ity in y_chunk {
+                        let y = *ity;
+                        for x in 0..width {
+                            let coords = zoom_list.do_zoom(x, y);
 
-                let iterations : u32 = mandelbrot::get_iterations(coords.0,coords.1);
+                            let iterations : u32 = mandelbrot::get_iterations(coords.0,coords.1);
 
-                let i = (y * self.width + x) as usize;
-                assert!(i < self.fractal.capacity(), "i : {} , cap: {}", i, self.fractal.capacity());
-
-                self.fractal[i] = iterations;
-
-                if iterations != mandelbrot::MAX_ITERATIONS {
-                    self.histogram[iterations as usize] += 1;
-                }
-
+                            let i = (y * width + x) as usize;
+                            
+                            
+                            tx_clone.send((i, iterations)).unwrap();
+                        }
+                    }
+                });
             }
-	    }
+        });
+        drop(tx); //unused
+
+        for received in rx {
+            let i = received.0;
+            let iterations = received.1;
+            assert!(i < self.fractal.capacity(), "i : {} , cap: {}", i, self.fractal.capacity());
+            self.fractal[i] = iterations;
+            if iterations != mandelbrot::MAX_ITERATIONS {
+                self.histogram[iterations as usize] += 1;
+            }
+        }
+
     }
 
 	fn calculate_total_iterations(&mut self, num_threads: u32) {
@@ -161,14 +182,14 @@ impl Fractal {
 	fn draw_fractal(&self, bitmap: &mut Bitmap, num_threads : u32) {
 
         let (tx, rx) = mpsc::channel();
-        let mut handles = vec!();
         let ys : Vec<_> = (0..self.height).collect();
+        let chunk_size : usize = (self.height as u32 / num_threads) as usize;
         crossbeam::scope(|scoped| {      
-            for y_chunk in ys.chunks(num_threads as usize) {
+            for y_chunk in ys.chunks(chunk_size) {
                 let tx_clone = tx.clone();
                 let width = self.width;
         
-                let handle = scoped.spawn(move || {
+                scoped.spawn(move || {
                     let start_color = RGB::new(0.0, 0.0, 0.0);
                     let end_color = RGB::new(0.0, 0.0, 255.0);
                     let color_diff = end_color - start_color.clone();
@@ -200,17 +221,13 @@ impl Fractal {
                         }
                     }
                 });
-                handles.push(handle);
             }
         });
         
         drop(tx);
-        for h in handles {
-            h.join();
-        }
+
         for received in rx {
             let color = received;
-            //println!("{:?}", color);
             bitmap.set_pixel(color.0, color.1, color.2, color.3, color.4);
         }
     }
@@ -220,7 +237,7 @@ impl Fractal {
         
         {   
             let _p = profiler.enter("calculate_iteration");
-            self.calculate_iteration();
+            self.calculate_iteration(num_threads);
         }
         
         {
