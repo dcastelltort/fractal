@@ -11,6 +11,9 @@ use std::io;
 use serde_json;
 
 use crossbeam;
+use std::sync::mpsc;
+
+use hprof::{Profiler};
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct RangeColor {
@@ -155,44 +158,86 @@ impl Fractal {
         }
     }
 
-	fn draw_fractal(&mut self, bitmap: &mut Bitmap) {
+	fn draw_fractal(&self, bitmap: &mut Bitmap, num_threads : u32) {
 
-        let start_color = RGB::new(0.0, 0.0, 0.0);
-	    let end_color = RGB::new(0.0, 0.0, 255.0);
-	    let color_diff = end_color - start_color.clone();
+        let (tx, rx) = mpsc::channel();
+        let mut handles = vec!();
+        let ys : Vec<_> = (0..self.height).collect();
+        crossbeam::scope(|scoped| {      
+            for y_chunk in ys.chunks(num_threads as usize) {
+                let tx_clone = tx.clone();
+                let width = self.width;
+        
+                let handle = scoped.spawn(move || {
+                    let start_color = RGB::new(0.0, 0.0, 0.0);
+                    let end_color = RGB::new(0.0, 0.0, 255.0);
+                    let color_diff = end_color - start_color.clone();
 
-        for y in 0..self.height {
-            for x in 0..self.width {
+                    for ity in y_chunk {
+                        let y =  *ity;
+                        for x in 0..width {
+                            let mut red : u8 = 0;
+                            let mut green : u8 = 0;
+                            let mut blue : u8 = 0;
+                            
+                            
+                            let iterations : u32 = self.fractal[(y * width + x) as usize];
 
-                let mut red : u8 = 0;
-                let mut green : u8 = 0;
-                let mut blue : u8 = 0;
+                            if iterations != mandelbrot::MAX_ITERATIONS {
 
-                let iterations : u32 = self.fractal[(y * self.width + x) as usize];
+                                let mut hue : f64 = 0.0;
 
-                if iterations != mandelbrot::MAX_ITERATIONS {
+                                for i in 0..iterations {
+                                    hue += self.histogram[i as usize] as f64 / self.total as f64;
+                                }
 
-                    let mut hue : f64 = 0.0;
-
-                    for i in 0..iterations {
-                        hue += self.histogram[i as usize] as f64 / self.total as f64;
+                                red = (start_color.r + color_diff.r * hue) as u8;
+                                green = (start_color.g + color_diff.g * hue) as u8;
+                                blue = (start_color.b + color_diff.b * hue) as u8;
+                                
+                            }
+                            tx_clone.send((x, y, red,green,blue)).unwrap();
+                        }
                     }
-
-                    red = (start_color.r + color_diff.r * hue) as u8;
-                    green = (start_color.g + color_diff.g * hue) as u8;
-                    blue = (start_color.b + color_diff.b * hue) as u8;
-                }
-
-                bitmap.set_pixel(x, y, red, green, blue);
+                });
+                handles.push(handle);
             }
+        });
+        
+        drop(tx);
+        for h in handles {
+            h.join();
+        }
+        for received in rx {
+            let color = received;
+            //println!("{:?}", color);
+            bitmap.set_pixel(color.0, color.1, color.2, color.3, color.4);
         }
     }
 
     fn render(&mut self, bitmap: &mut Bitmap, num_threads: u32) {
-        self.calculate_iteration();
-        self.calculate_total_iterations(num_threads);
-        self.calculate_range_totals();
-        self.draw_fractal(bitmap);
+        let profiler = Profiler::new("render");
+        
+        {   
+            let _p = profiler.enter("calculate_iteration");
+            self.calculate_iteration();
+        }
+        
+        {
+            let _p = profiler.enter("calculate_total_iterations");
+            self.calculate_total_iterations(num_threads);
+        }
+
+        {
+            let _p = profiler.enter("calculate_range_totals");
+            self.calculate_range_totals();
+        }
+        {
+            let _p = profiler.enter("draw_fractal");
+            self.draw_fractal(bitmap, num_threads);
+        }
+        
+        profiler.print_timing();
     }
 }
 

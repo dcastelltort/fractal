@@ -12,6 +12,7 @@ extern crate serde_derive;
 
 extern crate crossbeam;
 
+extern crate hprof;
 
 mod bitmap;
 mod rgb;
@@ -91,6 +92,7 @@ fn app() -> Result<(),&'static str> {
         return Err("invalid input file");
     }
 
+    println!("num threads: {:?}", threads);
     let mut fractal = fractalcreator::fractal_from_file(String::from(input_file)).unwrap();
 
     let fractal_creator = fractalcreator::FractalCreator::new();
